@@ -45,6 +45,67 @@ Return_T popcnt_naive(T arry[], size_t n_elts) {
   return ret;
 }
 
+#define DO32(stmt)			\
+  {					\
+  stmt;					\
+  stmt;					\
+  					\
+  stmt;					\
+  stmt;					\
+  					\
+  stmt;					\
+  stmt;					\
+  					\
+  stmt;					\
+  stmt;					\
+  					\
+  stmt;					\
+  stmt;					\
+  					\
+  stmt;					\
+  stmt;					\
+  					\
+  stmt;					\
+  stmt;					\
+  					\
+  stmt;					\
+  stmt;					\
+  					\
+  stmt;					\
+  stmt;					\
+  					\
+  stmt;					\
+  stmt;					\
+  					\
+  stmt;					\
+  stmt;					\
+  					\
+  stmt;					\
+  stmt;					\
+  					\
+  stmt;					\
+  stmt;					\
+  					\
+  stmt;					\
+  stmt;					\
+  					\
+  stmt;					\
+  stmt;					\
+  					\
+  stmt;					\
+  stmt;					\
+  }
+
+Return_T popcnt_naive_unrolled(T arry[], size_t n_elts) {
+  Return_T ret = 0;
+  for (size_t i = 0; i < n_elts; i++) {
+    register T n = arry[i];
+    DO32(ret += n & 0x01L; n >>= 1);
+    DO32(ret += n & 0x01L; n >>= 1);
+  }
+  return ret;
+}
+
 Return_T popcnt_naive_improved(T arry[], size_t n_elts) {
   Return_T ret = 0;
   for (size_t i = 0; i < n_elts; i++) {
@@ -128,6 +189,22 @@ Return_T popcnt_magic_nums(T arry[], size_t n_elts) {
   return ret;
 }
 
+Return_T popcnt_magic_nums_nomul(T arry[], size_t n_elts) {
+  Return_T ret = 0;
+  for (size_t i = 0; i < n_elts; i++) {
+    register T n;
+    n = (arry[i] & 0x5555555555555555L) + ((arry[i] >> 1) & 0x5555555555555555L);
+    n = (n & 0x3333333333333333L) + ((n >> 2) & 0x3333333333333333L);
+    n = (n & 0x0F0F0F0F0F0F0F0FL) + ((n >> 4) & 0x0F0F0F0F0F0F0F0FL);
+    n = (n & 0x00FF00FF00FF00FFL) + ((n >> 8) & 0x00FF00FF00FF00FFL);
+    n = (n & 0x0000FFFF0000FFFFL) + ((n >> 16) & 0x0000FFFF0000FFFFL);
+    //  n = (n & 0x00000000FFFFFFFFL) + ((n >> 32) & 0x00000000FFFFFFFFL);
+    n = n + (n >> 32);
+    ret += (Return_T) n;
+  }
+  return ret;
+}
+
 #define RUN_AND_REPORT(fn)                                              \
   {                                                                     \
   start_time = clock();                                                 \
@@ -165,6 +242,8 @@ int main (void) {
   RUN_AND_REPORT(popcnt_lookup);
   RUN_AND_REPORT(popcnt_inline_asm);
   RUN_AND_REPORT(popcnt_magic_nums);
+  RUN_AND_REPORT(popcnt_naive_unrolled);
+  RUN_AND_REPORT(popcnt_magic_nums_nomul);
   
   return 0;
 }
