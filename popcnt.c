@@ -14,25 +14,6 @@
 #define BIT_WIDTH (sizeof(T) * CHAR_BIT)
 #define bit_counter unsigned char
 
-static const unsigned char byte_bit_table[] = {
-  0, 1, 1, 2, 1, 2, 2, 3, 1, 2, 2, 3, 2, 3, 3, 4,
-  1, 2, 2, 3, 2, 3, 3, 4, 2, 3, 3, 4, 3, 4, 4, 5,
-  1, 2, 2, 3, 2, 3, 3, 4, 2, 3, 3, 4, 3, 4, 4, 5,
-  2, 3, 3, 4, 3, 4, 4, 5, 3, 4, 4, 5, 4, 5, 5, 6,
-  1, 2, 2, 3, 2, 3, 3, 4, 2, 3, 3, 4, 3, 4, 4, 5,
-  2, 3, 3, 4, 3, 4, 4, 5, 3, 4, 4, 5, 4, 5, 5, 6,
-  2, 3, 3, 4, 3, 4, 4, 5, 3, 4, 4, 5, 4, 5, 5, 6,
-  3, 4, 4, 5, 4, 5, 5, 6, 4, 5, 5, 6, 5, 6, 6, 7,
-  1, 2, 2, 3, 2, 3, 3, 4, 2, 3, 3, 4, 3, 4, 4, 5,
-  2, 3, 3, 4, 3, 4, 4, 5, 3, 4, 4, 5, 4, 5, 5, 6,
-  2, 3, 3, 4, 3, 4, 4, 5, 3, 4, 4, 5, 4, 5, 5, 6,
-  3, 4, 4, 5, 4, 5, 5, 6, 4, 5, 5, 6, 5, 6, 6, 7,
-  2, 3, 3, 4, 3, 4, 4, 5, 3, 4, 4, 5, 4, 5, 5, 6,
-  3, 4, 4, 5, 4, 5, 5, 6, 4, 5, 5, 6, 5, 6, 6, 7,
-  3, 4, 4, 5, 4, 5, 5, 6, 4, 5, 5, 6, 5, 6, 6, 7,
-  4, 5, 5, 6, 5, 6, 6, 7, 5, 6, 6, 7, 6, 7, 7, 8,
-};
-
 Return_T popcnt_naive(T arry[], size_t n_elts) {
   Return_T ret = 0;
   for (size_t i = 0; i < n_elts; i++) {
@@ -45,68 +26,48 @@ Return_T popcnt_naive(T arry[], size_t n_elts) {
   return ret;
 }
 
-#define DO32(stmt)			\
-  {					\
-  stmt;					\
-  stmt;					\
-  					\
-  stmt;					\
-  stmt;					\
-  					\
-  stmt;					\
-  stmt;					\
-  					\
-  stmt;					\
-  stmt;					\
-  					\
-  stmt;					\
-  stmt;					\
-  					\
-  stmt;					\
-  stmt;					\
-  					\
-  stmt;					\
-  stmt;					\
-  					\
-  stmt;					\
-  stmt;					\
-  					\
-  stmt;					\
-  stmt;					\
-  					\
-  stmt;					\
-  stmt;					\
-  					\
-  stmt;					\
-  stmt;					\
-  					\
-  stmt;					\
-  stmt;					\
-  					\
-  stmt;					\
-  stmt;					\
-  					\
-  stmt;					\
-  stmt;					\
-  					\
-  stmt;					\
-  stmt;					\
-  					\
-  stmt;					\
-  stmt;					\
-  }
-
-Return_T popcnt_naive_unrolled(T arry[], size_t n_elts) {
+Return_T popcnt_naive_branching(T arry[], size_t n_elts) {
   Return_T ret = 0;
   for (size_t i = 0; i < n_elts; i++) {
     register T n = arry[i];
-    DO32(ret += n & 0x01L; n >>= 1);
-    DO32(ret += n & 0x01L; n >>= 1);
+    for (bit_counter j = 0; j < BIT_WIDTH; j++) {
+      if (n & 0x01) {
+        ret++;
+      }
+      n >>= 1;
+    }
   }
   return ret;
 }
 
-Return_T popcnt_naive_improved(T arry[], size_t n_elts) {
+#define DO8(stmt) {                             \
+    stmt;                                       \
+    stmt;                                       \
+    stmt;                                       \
+    stmt;                                       \
+    stmt;                                       \
+    stmt;                                       \
+    stmt;                                       \
+    stmt;                                       \
+  }
+
+Return_T popcnt_naive_inner_unrolled(T arry[], size_t n_elts) {
+  Return_T ret = 0;
+  for (size_t i = 0; i < n_elts; i++) {
+    register T n = arry[i];
+    DO8(ret += n & 0x01L; n >>= 1); //  0-7
+    DO8(ret += n & 0x01L; n >>= 1); //  8-15
+    DO8(ret += n & 0x01L; n >>= 1); // 16-23
+    DO8(ret += n & 0x01L; n >>= 1); // 24-31
+    DO8(ret += n & 0x01L; n >>= 1); // 32-39
+    DO8(ret += n & 0x01L; n >>= 1); // 40-47
+    DO8(ret += n & 0x01L; n >>= 1); // 48-55
+    DO8(ret += n & 0x01L; n >>= 1); // 56-63
+  }
+  return ret;
+}
+
+Return_T popcnt_naive_early_exit(T arry[], size_t n_elts) {
   Return_T ret = 0;
   for (size_t i = 0; i < n_elts; i++) {
     register T n = arry[i];
@@ -118,7 +79,7 @@ Return_T popcnt_naive_improved(T arry[], size_t n_elts) {
   return ret;
 }
 
-Return_T popcnt_naive_improved_branching(T arry[], size_t n_elts) {
+Return_T popcnt_naive_early_exit_branching(T arry[], size_t n_elts) {
   Return_T ret = 0;
   for (size_t i = 0; i < n_elts; i++) {
     register T n = arry[i];
@@ -144,29 +105,28 @@ Return_T popcnt_kernighan(T arry[], size_t n_elts) {
   return ret;
 }
 
-Return_T popcnt_builtin(T arry[], size_t n_elts) {
-  Return_T ret = 0;
-  for (size_t i = 0; i < n_elts; i++) {
-    ret += __builtin_popcountll(arry[i]);
-  }
-  return ret;
-}
-
-Return_T popcnt_inline_asm(T arry[], size_t n_elts) {
-  Return_T ret = 0;
-  for (size_t i = 0; i < n_elts; i++) {
-    register T local_popcnt;
-    asm volatile ("popcnt %1, %0"
-                  : "=r" (local_popcnt)
-                  : "m" (arry[i]));
-    ret += local_popcnt;
-  }
-  return ret;
-}
-
 Return_T popcnt_lookup(T arry[], size_t n_elts) {
   Return_T ret = 0;
   uint8_t *arry_reinterpret = (uint8_t *) arry;
+  static const unsigned char byte_bit_table[] = {
+    0, 1, 1, 2, 1, 2, 2, 3, 1, 2, 2, 3, 2, 3, 3, 4,
+    1, 2, 2, 3, 2, 3, 3, 4, 2, 3, 3, 4, 3, 4, 4, 5,
+    1, 2, 2, 3, 2, 3, 3, 4, 2, 3, 3, 4, 3, 4, 4, 5,
+    2, 3, 3, 4, 3, 4, 4, 5, 3, 4, 4, 5, 4, 5, 5, 6,
+    1, 2, 2, 3, 2, 3, 3, 4, 2, 3, 3, 4, 3, 4, 4, 5,
+    2, 3, 3, 4, 3, 4, 4, 5, 3, 4, 4, 5, 4, 5, 5, 6,
+    2, 3, 3, 4, 3, 4, 4, 5, 3, 4, 4, 5, 4, 5, 5, 6,
+    3, 4, 4, 5, 4, 5, 5, 6, 4, 5, 5, 6, 5, 6, 6, 7,
+    1, 2, 2, 3, 2, 3, 3, 4, 2, 3, 3, 4, 3, 4, 4, 5,
+    2, 3, 3, 4, 3, 4, 4, 5, 3, 4, 4, 5, 4, 5, 5, 6,
+    2, 3, 3, 4, 3, 4, 4, 5, 3, 4, 4, 5, 4, 5, 5, 6,
+    3, 4, 4, 5, 4, 5, 5, 6, 4, 5, 5, 6, 5, 6, 6, 7,
+    2, 3, 3, 4, 3, 4, 4, 5, 3, 4, 4, 5, 4, 5, 5, 6,
+    3, 4, 4, 5, 4, 5, 5, 6, 4, 5, 5, 6, 5, 6, 6, 7,
+    3, 4, 4, 5, 4, 5, 5, 6, 4, 5, 5, 6, 5, 6, 6, 7,
+    4, 5, 5, 6, 5, 6, 6, 7, 5, 6, 6, 7, 6, 7, 7, 8,
+  };
+
   for (size_t i = 0; i < (n_elts * (sizeof(T) / sizeof(uint8_t))); i++) {
     ret += byte_bit_table[arry_reinterpret[i]];
   }
@@ -205,18 +165,25 @@ Return_T popcnt_magic_nums_nomul(T arry[], size_t n_elts) {
   return ret;
 }
 
-#define RUN_AND_REPORT(fn)                                              \
-  {                                                                     \
-  start_time = clock();                                                 \
-  current_answer = fn(data, n);                                         \
-  end_time = clock();                                                   \
-  time_spent = ((double) (end_time - start_time)) / CLOCKS_PER_SEC;     \
-  printf("Runtime of %33s: %6.3f. Answer: %10d\n",                      \
-         #fn,                                                           \
-         time_spent,                                                    \
-         current_answer);                                               \
+Return_T popcnt_builtin(T arry[], size_t n_elts) {
+  Return_T ret = 0;
+  for (size_t i = 0; i < n_elts; i++) {
+    ret += __builtin_popcountll(arry[i]);
   }
+  return ret;
+}
 
+Return_T popcnt_inline_asm(T arry[], size_t n_elts) {
+  Return_T ret = 0;
+  for (size_t i = 0; i < n_elts; i++) {
+    register T local_popcnt;
+    asm volatile ("popcnt %1, %0"
+                  : "=r" (local_popcnt)
+                  : "m" (arry[i]));
+    ret += local_popcnt;
+  }
+  return ret;
+}
 
 int main (void) {
   int fd;
@@ -230,20 +197,34 @@ int main (void) {
 
   fd = open("data.bin", O_RDONLY);
   fstat(fd, &s);
-  data = mmap(NULL, s.st_size, PROT_READ, MAP_SHARED, fd, 0);
+  data = mmap(NULL, s.st_size, PROT_READ, MAP_SHARED | MAP_POPULATE, fd, 0);
 
   n = s.st_size / sizeof(T);
 
+#define RUN_AND_REPORT(fn)                                              \
+  {                                                                     \
+  start_time = clock();                                                 \
+  current_answer = fn(data, n);                                         \
+  end_time = clock();                                                   \
+  time_spent = ((double) (end_time - start_time)) / CLOCKS_PER_SEC;     \
+  printf("Runtime of %40s: %6.3f. Answer: %10d\n",                      \
+         #fn,                                                           \
+         time_spent,                                                    \
+         current_answer);                                               \
+  }
+
+
   RUN_AND_REPORT(popcnt_naive);
-  RUN_AND_REPORT(popcnt_naive_improved);
-  RUN_AND_REPORT(popcnt_naive_improved_branching);
+  RUN_AND_REPORT(popcnt_naive_branching);
+  RUN_AND_REPORT(popcnt_naive_inner_unrolled);
+  RUN_AND_REPORT(popcnt_naive_early_exit);
+  RUN_AND_REPORT(popcnt_naive_early_exit_branching);
   RUN_AND_REPORT(popcnt_kernighan);
-  RUN_AND_REPORT(popcnt_builtin);
   RUN_AND_REPORT(popcnt_lookup);
-  RUN_AND_REPORT(popcnt_inline_asm);
   RUN_AND_REPORT(popcnt_magic_nums);
-  RUN_AND_REPORT(popcnt_naive_unrolled);
   RUN_AND_REPORT(popcnt_magic_nums_nomul);
+  RUN_AND_REPORT(popcnt_builtin);
+  RUN_AND_REPORT(popcnt_inline_asm);
   
   return 0;
 }
