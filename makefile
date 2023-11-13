@@ -5,7 +5,7 @@ TARGET := popcnt
 SRCS := popcnt.c
 
 CC = gcc
-CFLAGS = -O3 -Wall -pedantic
+CFLAGS = -O1 -funroll-loops -mpopcnt -Wall
 
 run: popcnt data.bin
 	./popcnt

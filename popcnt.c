@@ -9,12 +9,19 @@
 #include <fcntl.h>
 #include <time.h>
 
+#if defined(__x86_64__)
+
+#define X86_64
+
+#endif
+
+
 #define T uint64_t
-#define Return_T uint32_t // can hold the popcnt of up to 2**26 of T
+#define Return_T uint64_t // can hold the popcnt of up to 2**26 of T
 #define BIT_WIDTH (sizeof(T) * CHAR_BIT)
 #define bit_counter unsigned char
 
-Return_T popcnt_naive(T arry[], size_t n_elts) {
+Return_T popcnt_naive(const T arry[], size_t n_elts) {
   Return_T ret = 0;
   for (size_t i = 0; i < n_elts; i++) {
     register T n = arry[i];
@@ -26,7 +33,7 @@ Return_T popcnt_naive(T arry[], size_t n_elts) {
   return ret;
 }
 
-Return_T popcnt_naive_branching(T arry[], size_t n_elts) {
+Return_T popcnt_naive_branching(const T arry[], size_t n_elts) {
   Return_T ret = 0;
   for (size_t i = 0; i < n_elts; i++) {
     register T n = arry[i];
@@ -51,7 +58,7 @@ Return_T popcnt_naive_branching(T arry[], size_t n_elts) {
     stmt;                                       \
   }
 
-Return_T popcnt_naive_inner_unrolled(T arry[], size_t n_elts) {
+Return_T popcnt_naive_inner_unrolled(const T arry[], size_t n_elts) {
   Return_T ret = 0;
   for (size_t i = 0; i < n_elts; i++) {
     register T n = arry[i];
@@ -67,7 +74,7 @@ Return_T popcnt_naive_inner_unrolled(T arry[], size_t n_elts) {
   return ret;
 }
 
-Return_T popcnt_naive_early_exit(T arry[], size_t n_elts) {
+Return_T popcnt_naive_early_exit(const T arry[], size_t n_elts) {
   Return_T ret = 0;
   for (size_t i = 0; i < n_elts; i++) {
     register T n = arry[i];
@@ -79,7 +86,7 @@ Return_T popcnt_naive_early_exit(T arry[], size_t n_elts) {
   return ret;
 }
 
-Return_T popcnt_naive_early_exit_branching(T arry[], size_t n_elts) {
+Return_T popcnt_naive_early_exit_branching(const T arry[], size_t n_elts) {
   Return_T ret = 0;
   for (size_t i = 0; i < n_elts; i++) {
     register T n = arry[i];
@@ -93,7 +100,7 @@ Return_T popcnt_naive_early_exit_branching(T arry[], size_t n_elts) {
   return ret;
 }
 
-Return_T popcnt_kernighan(T arry[], size_t n_elts) {
+Return_T popcnt_kernighan(const T arry[], size_t n_elts) {
   Return_T ret = 0;
   for (size_t i = 0; i < n_elts; i++) {
     register T n = arry[i];
@@ -105,7 +112,7 @@ Return_T popcnt_kernighan(T arry[], size_t n_elts) {
   return ret;
 }
 
-Return_T popcnt_lookup(T arry[], size_t n_elts) {
+Return_T popcnt_lookup(const T arry[], size_t n_elts) {
   Return_T ret = 0;
   uint8_t *arry_reinterpret = (uint8_t *) arry;
   static const unsigned char byte_bit_table[] = {
@@ -133,7 +140,7 @@ Return_T popcnt_lookup(T arry[], size_t n_elts) {
   return ret;
 }
 
-Return_T popcnt_magic_nums(T arry[], size_t n_elts) {
+Return_T popcnt_magic_nums(const T arry[], size_t n_elts) {
   Return_T ret = 0;
   for (size_t i = 0; i < n_elts; i++) {
     register T popcnt_local = 0;
@@ -149,7 +156,7 @@ Return_T popcnt_magic_nums(T arry[], size_t n_elts) {
   return ret;
 }
 
-Return_T popcnt_magic_nums_nomul(T arry[], size_t n_elts) {
+Return_T popcnt_magic_nums_nomul(const T arry[], size_t n_elts) {
   Return_T ret = 0;
   for (size_t i = 0; i < n_elts; i++) {
     register T n;
@@ -158,14 +165,14 @@ Return_T popcnt_magic_nums_nomul(T arry[], size_t n_elts) {
     n = (n & 0x0F0F0F0F0F0F0F0FL) + ((n >> 4) & 0x0F0F0F0F0F0F0F0FL);
     n = (n & 0x00FF00FF00FF00FFL) + ((n >> 8) & 0x00FF00FF00FF00FFL);
     n = (n & 0x0000FFFF0000FFFFL) + ((n >> 16) & 0x0000FFFF0000FFFFL);
-    //  n = (n & 0x00000000FFFFFFFFL) + ((n >> 32) & 0x00000000FFFFFFFFL);
-    n = n + (n >> 32);
-    ret += (Return_T) n;
+    /* n = (n & 0x00000000FFFFFFFFL) + ((n >> 32) & 0x00000000FFFFFFFFL); */
+    n = (n + (n >> 32)) & 0x00000000FFFFFFFFL;
+    ret += n;
   }
   return ret;
 }
 
-Return_T popcnt_builtin(T arry[], size_t n_elts) {
+Return_T popcnt_builtin(const T arry[], size_t n_elts) {
   Return_T ret = 0;
   for (size_t i = 0; i < n_elts; i++) {
     ret += __builtin_popcountll(arry[i]);
@@ -173,16 +180,48 @@ Return_T popcnt_builtin(T arry[], size_t n_elts) {
   return ret;
 }
 
-Return_T popcnt_inline_asm(T arry[], size_t n_elts) {
+#ifdef X86_64
+Return_T popcnt_inline_asm(const T arry[], size_t n_elts) {
   Return_T ret = 0;
   for (size_t i = 0; i < n_elts; i++) {
     register T local_popcnt;
     asm volatile ("popcnt %1, %0"
                   : "=r" (local_popcnt)
-                  : "m" (arry[i]));
+                  : "r" (arry[i]));
     ret += local_popcnt;
   }
   return ret;
+}
+
+Return_T popcnt_inline_asm_unrolled(const T arry[], size_t n_elts) {
+  register T local_popcnt[4] = { 0 };
+  for (size_t i = 0; i < n_elts; i += 4) {
+    register T buf[4]  = { arry[i], arry[i + 1], arry[i+2], arry[i+3]};
+    asm volatile ("popcnt %4, %4\n\t"
+                  "addq   %4, %0\n\t"
+                  "popcnt %5, %5\n\t"
+                  "addq   %5, %1\n\t"
+                  "popcnt %6, %6\n\t"
+                  "addq   %6, %2\n\t"
+                  "popcnt %7, %7\n\t"
+                  "addq   %7, %3\n\t"
+                  : "+r" (local_popcnt[0]), "+r" (local_popcnt[1]), "+r" (local_popcnt[2]), "+r" (local_popcnt[3])
+                  : "r" (buf[0]), "r" (buf[1]), "r" (buf[2]), "r" (buf[3]));
+  }
+  return local_popcnt[0] + local_popcnt[1] + local_popcnt[2] + local_popcnt[3];
+}
+#endif
+
+void run_and_report(Return_T fn(const T[] , size_t), T data[], size_t n, const char *fn_name) {
+  clock_t start_time, end_time;
+  double time_spent;
+  Return_T current_answer;
+
+  start_time = clock();
+  current_answer = fn(data, n);
+  end_time = clock();
+  time_spent = ((double) (end_time - start_time)) / CLOCKS_PER_SEC;
+  printf("Runtime of %40s: %6.3f. Answer: %10ld\n", fn_name, time_spent, current_answer);
 }
 
 int main (void) {
@@ -190,10 +229,6 @@ int main (void) {
   struct stat s = {0};
   uint64_t *data = NULL;
   size_t n;
-  clock_t start_time, end_time;
-  double time_spent;
-
-  Return_T current_answer;
 
   fd = open("data.bin", O_RDONLY);
   fstat(fd, &s);
@@ -201,18 +236,7 @@ int main (void) {
 
   n = s.st_size / sizeof(T);
 
-#define RUN_AND_REPORT(fn)                                              \
-  {                                                                     \
-  start_time = clock();                                                 \
-  current_answer = fn(data, n);                                         \
-  end_time = clock();                                                   \
-  time_spent = ((double) (end_time - start_time)) / CLOCKS_PER_SEC;     \
-  printf("Runtime of %40s: %6.3f. Answer: %10d\n",                      \
-         #fn,                                                           \
-         time_spent,                                                    \
-         current_answer);                                               \
-  }
-
+#define RUN_AND_REPORT(fn) run_and_report(fn, data, n, #fn)
 
   RUN_AND_REPORT(popcnt_naive);
   RUN_AND_REPORT(popcnt_naive_branching);
@@ -224,7 +248,10 @@ int main (void) {
   RUN_AND_REPORT(popcnt_magic_nums);
   RUN_AND_REPORT(popcnt_magic_nums_nomul);
   RUN_AND_REPORT(popcnt_builtin);
+#ifdef X86_64
   RUN_AND_REPORT(popcnt_inline_asm);
-  
+  RUN_AND_REPORT(popcnt_inline_asm_unrolled);
+#endif
+
   return 0;
 }
