@@ -17,7 +17,7 @@
 
 
 #define T uint64_t
-#define Return_T uint64_t // can hold the popcnt of up to 2**26 of T
+#define Return_T uint64_t
 #define BIT_WIDTH (sizeof(T) * CHAR_BIT)
 #define bit_counter unsigned char
 
@@ -144,10 +144,6 @@ Return_T popcnt_magic_nums(const T arry[], size_t n_elts) {
   Return_T ret = 0;
   for (size_t i = 0; i < n_elts; i++) {
     register T popcnt_local = 0;
-    /* popcnt_local = arry[i] - ((arry[i] >> 1) & (T)~(T)0/3); */
-    /* popcnt_local = (popcnt_local & (T)~(T)0/15*3) + ((popcnt_local >> 2) & (T)~(T)0/15*3); */
-    /* popcnt_local = (popcnt_local + (popcnt_local >> 4)) & (T)~(T)0/255*15; */
-    /* ret += (T)(popcnt_local * ((T)~(T)0/255)) >> (sizeof(T) - 1) * CHAR_BIT; */
     popcnt_local = arry[i] - ((arry[i] >> 1) & 0x5555555555555555L);
     popcnt_local = (popcnt_local & 0x3333333333333333L) + ((popcnt_local >> 2) & 0x3333333333333333L);
     popcnt_local = (popcnt_local + (popcnt_local >> 4)) & 0x0F0F0F0F0F0F0F0FL;
@@ -212,6 +208,53 @@ Return_T popcnt_inline_asm_unrolled(const T arry[], size_t n_elts) {
 }
 #endif
 
+#define CSA(h,l, a,b,c) \
+  {T u = a ^ b; T v = c; h = (a & b) | (u & v); l = u ^ v; }
+
+inline Return_T popcnt_one(T n) {
+  Return_T ret;
+  ret = n - ((n >> 1) & 0x5555555555555555L);
+  ret = (ret & 0x3333333333333333L) + ((ret >> 2) & 0x3333333333333333L);
+  ret = (ret + (ret >> 4)) & 0x0F0F0F0F0F0F0F0FL;
+  return (ret * 0x0101010101010101L) >> 56;
+}
+
+T popcnt_csa(const T arry[], size_t n_elts) {
+  register Return_T ret = 0;
+  register T ones = 0;
+  register T twos;
+  register T local_popcnt;
+  for (size_t i = 0; i < n_elts - 1; i += 2) {
+    CSA(twos, ones, ones, arry[i], arry[i + 1]);
+    local_popcnt = popcnt_one(twos);
+    ret += local_popcnt;
+  }
+  ret *= 2;
+  local_popcnt = popcnt_one(ones);
+  ret += local_popcnt;
+  return ret;
+}
+
+T popcnt_csa_asm(const T arry[], size_t n_elts) {
+  register Return_T ret = 0;
+  register T ones = 0;
+  register T twos;
+  register T local_popcnt;
+  for (size_t i = 0; i < n_elts - 1; i += 2) {
+    CSA(twos, ones, ones, arry[i], arry[i + 1]);
+    asm volatile ("popcnt %1, %0"
+                  : "=r" (local_popcnt)
+                  : "r" (twos));
+    ret += local_popcnt;
+  }
+  ret *= 2;
+  asm volatile ("popcnt %1, %0"
+                : "=r" (local_popcnt)
+                : "r" (ones));
+  ret += local_popcnt;
+  return ret;
+}
+
 void run_and_report(Return_T fn(const T[] , size_t), T data[], size_t n, const char *fn_name) {
   clock_t start_time, end_time;
   double time_spent;
@@ -247,10 +290,12 @@ int main (void) {
   RUN_AND_REPORT(popcnt_lookup);
   RUN_AND_REPORT(popcnt_magic_nums);
   RUN_AND_REPORT(popcnt_magic_nums_nomul);
+  RUN_AND_REPORT(popcnt_csa);
   RUN_AND_REPORT(popcnt_builtin);
 #ifdef X86_64
   RUN_AND_REPORT(popcnt_inline_asm);
   RUN_AND_REPORT(popcnt_inline_asm_unrolled);
+  RUN_AND_REPORT(popcnt_csa_asm);
 #endif
 
   return 0;
